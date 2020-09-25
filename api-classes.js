@@ -22,10 +22,8 @@ class StoryList {
   // TODO: Note the presence of `static` keyword: this indicates that getStories
   // is **not** an instance method. Rather, it is a method that is called on the
   // class directly. Why doesn't it make sense for getStories to be an instance method?
-
-  // because it is something you wish to occur everytime storylist is accessed, since 
-  // the act of accessing this class infers that you are trying to change the story list,
-  // which then would require an update to said story list. 
+  
+  //good question, I will get back to you on that. 
 
   static async getStories() {
     // query the /stories endpoint (no auth required)
@@ -39,6 +37,7 @@ class StoryList {
     return storyList;
   }
 
+ 
   /**
    * Method to make a POST request to /stories and add the new story to the list
    * - user - the current instance of User who will post the story
@@ -48,7 +47,7 @@ class StoryList {
    */
 
   async addStory(user, newStory) {
-    console.log(`${User.loginToken} made it in to the addStory`)
+    console.log(newStory.author, newStory.title, newStory.url, "inside the addStory")
     // response = await axios.post(
     //   `${BASE_URL}/stories`, { `${User.loginToken}`, newStory}
     // )
@@ -65,17 +64,26 @@ class StoryList {
  */
 
 class User {
-  constructor(userObj) {
-    this.username = userObj.username;
-    this.name = userObj.name;
-    this.createdAt = userObj.createdAt;
-    this.updatedAt = userObj.updatedAt;
+  constructor({
+    username,
+    name,
+    createdAt,
+    favorites = [],
+    ownStories = [],
+    token
+    
+  },) {
+this.username = username;
+this.name = name;
+this.createdAt = createdAt;
 
-    // these are all set to defaults, not passed in by the constructor
-    this.loginToken = "";
-    this.favorites = [];
-    this.ownStories = [];
-  }
+// instantiate Story instances for the user's favorites and ownStories
+this.favorites = favorites.map(s => new Story(s));
+this.ownStories = ownStories.map(s => new Story(s));
+
+// store the login token on the user so it's easy to find for API calls.
+this.loginToken = token;
+}
 
   /* Create and return a new user.
    *
@@ -159,6 +167,46 @@ class User {
     existingUser.ownStories = response.data.user.stories.map(s => new Story(s));
     return existingUser;
   }
+  
+  // async addFavorite(storyId, currentUser) {
+  //   console.log(storyId)
+  //   currentUser.favorites.push(storyId);
+  //   const favoriteArray = currentUser.favorites.push(storyId);
+  //   console.log(favoriteArray)
+  //   await this.addOrRemoveFavorite("add", storyId, currentUser)
+  // }
+  async addFavorite(story) {
+    this.favorites.push(story);
+    await this._addOrRemoveFavorite("add", story)
+  }
+
+  async removeFavorite(storyId) {
+    this.favorites = this.favorites.filter(storyId !== Story.storyId);
+    await this.addOrRemoveFavorite("remove", story, currentUser);
+  }
+
+   
+
+  static async addOrRemoveFavorite(addOrRemove, storyId) {
+    const method = addOrRemove === "add" ? "POST" : "DELETE";
+    const token = localStorage.getItem("token");
+    const username = localStorage.getItem("username");
+    console.log(token)
+    // await axios({
+    //   url: `${BASE_URL}/users/${username}/favorites/${storyId}`,
+    //   method: method,
+    //   data: { token },
+    // });
+  }
+
+  isFavorite(story) {
+      return this.favorites.some(s => (s.storyId === story.storyId));
+    }
+  
+  
+
+  
+
 }
 
 /**

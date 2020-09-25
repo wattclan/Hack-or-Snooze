@@ -11,6 +11,8 @@ $(async function() {
   const $navSubmit = $("#nav-submit");
   const $navFavorite = $("#nav-favorite");
   const $navSubmissions = $("#nav-submissions");
+  
+  
 
   // global storyList variable
   let storyList = null;
@@ -38,6 +40,7 @@ $(async function() {
     currentUser = userInstance;
     syncCurrentUserToLocalStorage();
     loginAndSubmitForm();
+    return currentUser;
   });
 
   /**
@@ -102,15 +105,18 @@ $(async function() {
     // let's see if we're logged in
     const token = localStorage.getItem("token");
     const username = localStorage.getItem("username");
-
+    
     // if there is a token in localStorage, call User.getLoggedInUser
     //  to get an instance of User with the right details
     //  this is designed to run once, on page load
     currentUser = await User.getLoggedInUser(token, username);
-    await generateStories();
+    localStorage.setItem("user", currentUser) 
 
     if (currentUser) {
+      console.log(currentUser)
       showNavForLoggedInUser();
+      await generateStories();
+      return currentUser;
     }
   }
 
@@ -158,12 +164,14 @@ $(async function() {
    * A function to render HTML for an individual Story instance
    */
 
-  function generateStoryHTML(story) {
+  function generateStoryHTML(story, showDeleteBtn = false) {
     let hostName = getHostName(story.url);
-
+    const showStar = Boolean(currentUser);
     // render story markup
     const storyMarkup = $(`
       <li id="${story.storyId}">
+        ${showDeleteBtn ? getDeleteBtnHTML() : ""}
+        ${showStar ? favoriteStar(story, currentUser) : ""}
         <a class="article-link" href="${story.url}" target="a_blank">
           <strong>${story.title}</strong>
         </a>
@@ -172,7 +180,7 @@ $(async function() {
         <small class="article-username">posted by ${story.username}</small>
       </li>
     `);
-
+    
     return storyMarkup;
   }
 
@@ -193,6 +201,8 @@ $(async function() {
   function showNavForLoggedInUser() {
     $navLogin.hide();
     $navLogOut.show();
+    generateUserProfile();
+    
   }
 
   /* simple function to pull the hostname from a URL */
@@ -214,11 +224,20 @@ $(async function() {
 
   function syncCurrentUserToLocalStorage() {
     if (currentUser) {
+      localStorage.setItem("user", currentUser)
       localStorage.setItem("token", currentUser.loginToken);
       localStorage.setItem("username", currentUser.username);
+      
     }
   }
 
+  function generateUserProfile() {
+    console.debug("generateUserProfile");
+  
+    $("#profile-name").text(currentUser.name);
+    $("#profile-username").text(currentUser.username);
+    $("#profile-account-date").text(currentUser.createdAt.slice(0, 10));
+  }
   // what follows are functions added to accomplish the goals outlined.
 
   $navSubmit.on("click", function() {
@@ -229,13 +248,57 @@ $(async function() {
 
   $submitForm.on("submit", async function(){
     //pushes information inputed in the form to the addStory function
-    response  = await StoryList.addStory();
-    console.log(`${response} made it to the submit form`)
+    let newStory = new StoryList();
+    let author = document.getElementById("author").value;
+    let title = document.getElementById("title").value;
+    let url = document.getElementById("url").value;
+    let userStory = {"author": author, "title": title, "url": url};
+    console.log(newStory.addStory(currentUser, userStory))
   })
 
 
-
-
-
+  function favoriteStar(story, user){
+    const isFavorite = user.isFavorite(story);
+    const starType = isFavorite ? "fas" : "far";
+    return`
+    <span class="star">
+      <i class="${starType} fa-star" onclick="toggleFavorite(event)"></i>
+    </span>`;
+  }
+  
+   
+  
 });
 
+function starType(storyId){
+  const $allStoriesList = $("#all-articles-list");
+  // console.log($allStoriesList[0].children)
+  for(story of $allStoriesList[0].children){
+    if(storyId === story.id){
+      return story.firstElementChild.childNodes[1].className;
+    }
+  }
+}
+
+
+async function toggleFavorite(event){
+  const storyId = event.target.parentElement.parentElement.id;
+  starClass = starType(storyId)
+  
+ const user = localStorage.getItem("user");
+ console.log(user.loginToken)
+  
+  
+  if(starClass == "far fa-star"){
+    console.log("change it to fas fa-star, add to faves")
+    // new User.addFavorite(event)
+    console.log(event.target.className)
+    
+    user.addFavorite(event.target.parentElement.parentElement.id, user)
+  }else{
+    console.log("change it to far fa-star, remove from faves")
+    user.removeFavorite(event.target.parentElement.parentElement.id, user)
+    
+  } ;
+
+}
